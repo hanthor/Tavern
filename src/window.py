@@ -1,16 +1,19 @@
 # window.py - Main application window
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import gettext
+import threading
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-
-import threading
 
 from gi.repository import Adw, Gtk, Gio, GLib, GObject
 from .backend import BrewBackend
 from .task_manager import TaskManager
 from .logging_util import get_logger
+
+_ = gettext.gettext
 
 _log = get_logger('window')
 
@@ -204,7 +207,7 @@ class TavernWindow(Adw.ApplicationWindow):
 
         if show_not_found:
             _log.warning('Package not found: %s', package_name)
-            self.toast_overlay.add_toast(Adw.Toast.new(f'Package "{package_name}" not found'))
+            self.toast_overlay.add_toast(Adw.Toast.new(_(f'Package "{package_name}" not found')))
         return False
 
 
@@ -219,8 +222,8 @@ class TavernWindow(Adw.ApplicationWindow):
         pkg = task.package
         from .task_manager import TaskStatus
         if task.status == TaskStatus.COMPLETED:
-            verb = 'Installed' if task.operation == 'install' else (
-                'Removed' if task.operation == 'uninstall' else 'Upgraded'
+            verb = _('Installed') if task.operation == 'install' else (
+                _('Removed') if task.operation == 'uninstall' else _('Upgraded')
             )
             self.toast_overlay.add_toast(Adw.Toast.new(
                 f'{verb}: {pkg.display_name or pkg.name}'
@@ -232,7 +235,7 @@ class TavernWindow(Adw.ApplicationWindow):
                 self._offer_tap_conflict_resolution(task)
             else:
                 self.toast_overlay.add_toast(Adw.Toast.new(
-                    f'Failed: {pkg.display_name or pkg.name}'
+                    _('Failed: {name}').format(name=pkg.display_name or pkg.name)
                 ))
         # Refresh installed page
         self.installed_page.refresh(self.backend)
@@ -243,12 +246,12 @@ class TavernWindow(Adw.ApplicationWindow):
     def _on_active_count_changed(self, mgr, pspec):
         count = mgr.active_count
         if count > 0:
-            self.task_button.set_tooltip_text(f'{count} task{"s" if count != 1 else ""} running')
+            self.task_button.set_tooltip_text(_('{count} task running').format(count=count) if count == 1 else _('{count} tasks running').format(count=count))
             self.task_indicator_stack.set_visible_child_name('active')
             self.task_count_label.set_label(str(count))
             self.task_count_label.set_visible(True)
         else:
-            self.task_button.set_tooltip_text('Downloads & Tasks')
+            self.task_button.set_tooltip_text(_('Downloads & Tasks'))
             self.task_indicator_stack.set_visible_child_name('idle')
             self.task_count_label.set_visible(False)
 
@@ -294,7 +297,7 @@ class TavernWindow(Adw.ApplicationWindow):
         # outdated-changed is re-emitted several times during loading.
         if count > 0 and count != self._toasted_outdated_count:
             self._toasted_outdated_count = count
-            msg = f'{count} package{"s" if count != 1 else ""} can be updated'
+            msg = _('{count} package can be updated').format(count=count) if count == 1 else _('{count} packages can be updated').format(count=count)
             self.toast_overlay.add_toast(Adw.Toast.new(msg))
 
     def _on_backend_loading_changed(self, backend, _pspec):
@@ -334,7 +337,7 @@ class TavernWindow(Adw.ApplicationWindow):
         if self.tap_page.select_tap(tap_name):
             return True
         _log.warning('Tap not found: %s', tap_name)
-        self.toast_overlay.add_toast(Adw.Toast.new(f'Tap "{tap_name}" not found'))
+        self.toast_overlay.add_toast(Adw.Toast.new(_(f'Tap "{tap_name}" not found')))
         return False
 
 
@@ -361,12 +364,11 @@ class TavernWindow(Adw.ApplicationWindow):
         options = task.ambiguous_taps  # ['user/tap/name', ...]
 
         dialog = Adw.AlertDialog()
-        dialog.set_heading('Choose a Tap')
+        dialog.set_heading(_('Choose a Tap'))
         dialog.set_body(
-            f'"{pkg.display_name or pkg.name}" is available from multiple taps.\n'
-            'Choose which one to install from:'
+            _('"{name}" is available from multiple taps.\nChoose which one to install from:').format(name=pkg.display_name or pkg.name)
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         dialog.set_close_response('cancel')
 
         listbox = Gtk.ListBox()
@@ -380,7 +382,7 @@ class TavernWindow(Adw.ApplicationWindow):
             tap_name = parts[0] if len(parts) == 2 else qualified
             row = Adw.ActionRow()
             row.set_title(qualified)
-            row.set_subtitle(f'from tap: {tap_name}')
+            row.set_subtitle(_('from tap: {tap}').format(tap=tap_name))
             row._qualified = qualified
             listbox.append(row)
 
@@ -390,7 +392,7 @@ class TavernWindow(Adw.ApplicationWindow):
             listbox.select_row(first)
 
         dialog.set_extra_child(listbox)
-        dialog.add_response('install', 'Install')
+        dialog.add_response('install', _('Install'))
         dialog.set_response_appearance('install', Adw.ResponseAppearance.SUGGESTED)
         dialog.set_default_response('install')
         dialog.connect('response', self._on_ambiguous_tap_response, listbox, pkg)
@@ -417,20 +419,21 @@ class TavernWindow(Adw.ApplicationWindow):
         is_core = target_tap in ('homebrew/core', 'homebrew/cask')
 
         dialog = Adw.AlertDialog()
-        dialog.set_heading('Tap Conflict')
+        dialog.set_heading(_('Tap Conflict'))
         dialog.set_body(
-            f'"{pkg.display_name or pkg.name}" is already installed from the '
-            f'{installed_tap} tap.\n\n'
-            + (
-                f'Would you like to uninstall it from {installed_tap} and reinstall '
-                f'from {target_tap}?'
-                if is_core else
-                f'Formulae with the same name from different taps cannot both be installed.'
+            _('"{name}" is already installed from the {tap} tap.\n\n{resolution}').format(
+                name=pkg.display_name or pkg.name,
+                tap=installed_tap,
+                resolution=(
+                    _('Would you like to uninstall it from {src} and reinstall from {dst}?').format(src=installed_tap, dst=target_tap)
+                    if is_core else
+                    _('Formulae with the same name from different taps cannot both be installed.')
+                )
             )
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         if is_core:
-            dialog.add_response('switch', f'Switch to {target_tap}')
+            dialog.add_response('switch', _('Switch to {tap}').format(tap=target_tap))
             dialog.set_response_appearance('switch', Adw.ResponseAppearance.SUGGESTED)
         dialog.set_default_response('cancel')
         dialog.set_close_response('cancel')
@@ -461,7 +464,7 @@ class TavernWindow(Adw.ApplicationWindow):
             self.task_manager.install(pkg)
         else:
             self.toast_overlay.add_toast(Adw.Toast.new(
-                f'Could not uninstall {pkg.name} — tap switch cancelled'
+                _('Could not uninstall {name} — tap switch cancelled').format(name=pkg.name)
             ))
 
     def _on_tap_operation(self, page, message):
@@ -498,14 +501,14 @@ class TavernWindow(Adw.ApplicationWindow):
             _log.warning('Pin requested but dialog has no package attached')
             return
         if package.pkg_type not in ('formula', 'cask'):
-            self.toast_overlay.add_toast(Adw.Toast.new('Pinning is only supported for formulae and casks'))
+            self.toast_overlay.add_toast(Adw.Toast.new(_('Pinning is only supported for formulae and casks')))
             return
 
         def _on_pin_done(success, msg):
             text = (
-                f'Pinned {package.name}'
+                _('Pinned {name}').format(name=package.name)
                 if success
-                else f'Failed to pin {package.name}'
+                else _('Failed to pin {name}').format(name=package.name)
             )
             self.toast_overlay.add_toast(Adw.Toast.new(text))
 
@@ -527,7 +530,7 @@ class TavernWindow(Adw.ApplicationWindow):
         _log.info('Manual refresh triggered')
         self.browse_page.set_loading()
         self.backend.load_all_async()
-        self.toast_overlay.add_toast(Adw.Toast.new('Refreshing package list…'))
+        self.toast_overlay.add_toast(Adw.Toast.new(_('Refreshing package list…')))
 
     def _on_open_brewfile(self, action, param):
         _log.info('Open Brewfile action triggered')
@@ -535,12 +538,12 @@ class TavernWindow(Adw.ApplicationWindow):
         
         # Create file filter for .Brewfile files
         filter_brewfile = Gtk.FileFilter()
-        filter_brewfile.set_name('Brewfile')
+        filter_brewfile.set_name(_('Brewfile'))
         filter_brewfile.add_pattern('*.Brewfile')
         filter_brewfile.add_pattern('Brewfile')
         
         filter_all = Gtk.FileFilter()
-        filter_all.set_name('All files')
+        filter_all.set_name(_('All files'))
         filter_all.add_pattern('*')
         
         filters = Gio.ListStore.new(Gtk.FileFilter)
@@ -549,7 +552,7 @@ class TavernWindow(Adw.ApplicationWindow):
         
         # Create and configure file dialog
         dialog = Gtk.FileDialog()
-        dialog.set_title('Open Brewfile')
+        dialog.set_title(_('Open Brewfile'))
         dialog.set_filters(filters)
         dialog.set_default_filter(filter_brewfile)
         
@@ -573,7 +576,7 @@ class TavernWindow(Adw.ApplicationWindow):
         except Exception as e:
             if 'dismissed' not in str(e).lower():
                 _log.error('Error opening Brewfile: %s', e)
-                self.toast_overlay.add_toast(Adw.Toast.new('Failed to open Brewfile'))
+                self.toast_overlay.add_toast(Adw.Toast.new(_('Failed to open Brewfile')))
 
     def open_brewfile(self, path):
         """Open a Brewfile as a new tab in the main window."""
@@ -589,7 +592,7 @@ class TavernWindow(Adw.ApplicationWindow):
             if os.path.abspath(brewfile_path) == abs_path:
                 _log.info('Brewfile already open: %s', abs_path)
                 self.main_stack.set_visible_child_name(page_name)
-                self.toast_overlay.add_toast(Adw.Toast.new(f'Already viewing {os.path.basename(path)}'))
+                self.toast_overlay.add_toast(Adw.Toast.new(_(f'Already viewing {os.path.basename(path)}')))
                 return
         
         # Extract filename for tab title
