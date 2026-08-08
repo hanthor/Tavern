@@ -33,3 +33,6 @@ CONTEXT.md
 agents.md
 plan/
 skills/
+
+# Build output / release artifacts
+/dist/
