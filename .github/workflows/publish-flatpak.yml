@@ -60,8 +60,10 @@ jobs:
 
     - name: Log in to GHCR
       run: |
-        echo "${{ secrets.GITHUB_TOKEN }}" | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
+        echo "${{ env.GITHUB_TOKEN }}" | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Push OCI to GHCR
       run: |
         echo "Pushing latest tag..."
@@ -74,10 +76,16 @@ jobs:
         fi
 
     - name: Update central index (tuna-os/docs)
+      env:
+        FLATPAK_INDEX_TOKEN: ${{ secrets.FLATPAK_INDEX_TOKEN }}
       run: |
         git clone --depth 1 \
-          https://x-access-token:${{ secrets.FLATPAK_INDEX_TOKEN }}@github.com/tuna-os/docs.git \
+          https://github.com/tuna-os/docs.git \
           index-repo
+        # Use header-based auth so the token never lands in the remote URL
+        # (avoids leaks via .git/config, `git remote -v`, and process listings).
+        git -C index-repo config --local http.extraheader \
+          "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$FLATPAK_INDEX_TOKEN" | base64)"
         pip install requests
         python3 .github/scripts/update-index.py \
           --oci-dir tavern.oci \
