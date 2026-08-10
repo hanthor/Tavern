@@ -1,6 +1,7 @@
 # backend.py - Homebrew backend using the formulae.brew.sh JSON API + local brew CLI
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import gettext
 import io
 import json
 import os
@@ -13,6 +14,8 @@ from urllib.request import urlopen, Request
 from urllib.error import URLError
 
 import gi
+
+_ = gettext.gettext
 gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gio, GLib, GObject, GdkPixbuf
 
@@ -60,7 +63,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
     __gtype_name__ = 'TavernBrewBackend'
 
     loading = GObject.Property(type=bool, default=False)
-    loading_status = GObject.Property(type=str, default='Loading Homebrew Content…')
+    loading_status = GObject.Property(type=str, default=_('Loading Homebrew Content…'))
     loading_progress = GObject.Property(type=float, default=0.0)
     _refresh_lock = threading.Lock()
 
@@ -242,7 +245,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
                     display_name = "formulae" if is_formula else "casks"
 
                     if is_catalog:
-                        self._update_status(f"Downloading Homebrew {display_name} catalog…")
+                        self._update_status(_(f"Downloading Homebrew {display_name} catalog…"))
                     
                     read_all = False
                     while True:
@@ -265,7 +268,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
                             percent = int((downloaded / content_length) * 100)
                             downloaded_mb = downloaded / (1024 * 1024)
                             total_mb = content_length / (1024 * 1024)
-                            self._update_status(f"Downloading Homebrew {display_name} catalog ({percent}%: {downloaded_mb:.1f} MB / {total_mb:.1f} MB)…")
+                            self._update_status(_(f"Downloading Homebrew {display_name} catalog ({percent}%: {downloaded_mb:.1f} MB / {total_mb:.1f} MB)…"))
 
                             # Scale the progress bar fraction
                             fraction = downloaded / content_length
@@ -275,7 +278,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
                                 self._update_progress(0.6 + fraction * 0.3)
                         else:
                             downloaded_mb = downloaded / (1024 * 1024)
-                            self._update_status(f"Downloading Homebrew {display_name} catalog ({downloaded_mb:.1f} MB)…")
+                            self._update_status(_(f"Downloading Homebrew {display_name} catalog ({downloaded_mb:.1f} MB)…"))
                             
                     content = buffer.getvalue()
                     
@@ -286,12 +289,12 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
                             is_gzip = True
                     if is_gzip:
                         if is_catalog:
-                            self._update_status(f"Decompressing Homebrew {display_name} catalog…")
+                            self._update_status(_(f"Decompressing Homebrew {display_name} catalog…"))
                         _log.debug('Decompressing gzip response for %s', url)
                         content = gzip.decompress(content)
                     
                     if is_catalog:
-                        self._update_status(f"Parsing Homebrew {display_name} catalog…")
+                        self._update_status(_(f"Parsing Homebrew {display_name} catalog…"))
                     data = json.loads(content.decode('utf-8'))
             _log.debug('Fetched JSON OK: %s  (items=%s)',
                        url, len(data) if isinstance(data, list) else '?')
@@ -329,7 +332,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
             return None
         try:
             display_name = "formulae" if pkg_type == "formula" else "casks"
-            self._update_status(f"Reading system Homebrew {display_name} catalog…")
+            self._update_status(_(f"Reading system Homebrew {display_name} catalog…"))
             _log.info('Found system Homebrew cached JWS file for %s at %s', pkg_type, path)
             with open(path, 'r', encoding='utf-8') as f:
                 jws_data = json.load(f)
@@ -578,7 +581,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
     def _load_all_thread(self):
         _log.debug('_load_all_thread started')
         self._update_progress(0.0)
-        self._update_status("Scanning installed packages…")
+        self._update_status(_("Scanning installed packages…"))
         # Get installed packages first
         with log_timing('get installed packages', 'backend'):
             installed_f, installed_c = self._get_installed()
@@ -596,7 +599,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
         threading.Thread(target=self._load_pinned, daemon=True).start()
 
         # Load formulae from cache first
-        self._update_status("Loading Homebrew formulae catalog…")
+        self._update_status(_("Loading Homebrew formulae catalog…"))
         self._update_progress(0.08)
         has_cache_f = False
         data, is_stale = self._load_cached('formulae', max_age=43200)
@@ -611,7 +614,7 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
             self._update_progress(0.12)
 
         # Load casks from cache first
-        self._update_status("Loading Homebrew casks catalog…")
+        self._update_status(_("Loading Homebrew casks catalog…"))
         self._update_progress(0.15)
         has_cache_c = False
         data_c, is_stale_c = self._load_cached('casks', max_age=43200)
@@ -702,14 +705,14 @@ class BrewBackend(TapsMixin, MediaMixin, GObject.Object):
         # If no cache was available on launch, tap scan and clear spinner now
         if not (has_cache_f or has_cache_c):
             self._update_progress(0.92)
-            self._update_status("Scanning local taps…")
+            self._update_status(_("Scanning local taps…"))
             _log.debug('No cache was available on launch, scanning taps and clearing spinner now')
             self._load_tap_packages()
             self._update_progress(0.96)
             GLib.idle_add(self._set_loading_false)
 
         self._update_progress(0.98)
-        self._update_status("Building search provider index…")
+        self._update_status(_("Building search provider index…"))
         self._build_search_provider_cache()
         self._update_progress(1.0)
 

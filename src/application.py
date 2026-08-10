@@ -1,6 +1,7 @@
 # application.py - GtkApplication subclass
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import gettext
 import os
 import threading
 import gi
@@ -12,6 +13,8 @@ from gi.repository import Adw, Gio, GLib, Gtk
 from .window import TavernWindow
 from .search_provider import TavernSearchProvider
 from .logging_util import get_logger
+
+_ = gettext.gettext
 
 _log = get_logger('application')
 
@@ -282,20 +285,20 @@ class TavernApplication(Adw.Application):
     def _on_preferences_action(self, *args):
         settings = Gio.Settings.new(self.get_application_id())
 
-        page = Adw.PreferencesPage(title='General', icon_name='emblem-system-symbolic')
-        group = Adw.PreferencesGroup(title='Updates')
+        page = Adw.PreferencesPage(title=_('General'), icon_name='emblem-system-symbolic')
+        group = Adw.PreferencesGroup(title=_('Updates'))
 
         check_row = Adw.SwitchRow(
-            title='Check for Outdated Packages',
-            subtitle='Check for outdated packages at startup and periodically',
+            title=_('Check for Outdated Packages'),
+            subtitle=_('Check for outdated packages at startup and periodically'),
         )
         settings.bind('outdated-check-enabled', check_row, 'active',
                       Gio.SettingsBindFlags.DEFAULT)
         group.add(check_row)
 
         interval_row = Adw.SpinRow.new_with_range(1, 168, 1)
-        interval_row.set_title('Check Interval')
-        interval_row.set_subtitle('Hours between background update checks')
+        interval_row.set_title(_('Check Interval'))
+        interval_row.set_subtitle(_('Hours between background update checks'))
         settings.bind('outdated-check-interval-hours', interval_row, 'value',
                       Gio.SettingsBindFlags.DEFAULT)
         settings.bind('outdated-check-enabled', interval_row, 'sensitive',
@@ -303,7 +306,7 @@ class TavernApplication(Adw.Application):
         group.add(interval_row)
 
         page.add(group)
-        dialog = Adw.PreferencesDialog(title='Preferences', search_enabled=True,
+        dialog = Adw.PreferencesDialog(title=_('Preferences'), search_enabled=True,
                                        content_width=600)
         dialog.add(page)
         dialog._settings = settings  # keep settings alive while the dialog is open
@@ -314,14 +317,14 @@ class TavernApplication(Adw.Application):
             _log.debug('Adw.ShortcutsDialog unavailable (libadwaita < 1.8)')
             return
         dialog = Adw.ShortcutsDialog()
-        section = Adw.ShortcutsSection(title='General')
+        section = Adw.ShortcutsSection(title=_('General'))
         for title, accel in (
-            ('Search Packages', '<Ctrl>F'),
-            ('Open Brewfile', '<Ctrl>O'),
-            ('Refresh Package Lists', '<Ctrl>R'),
-            ('Preferences', '<Ctrl>comma'),
-            ('Keyboard Shortcuts', '<Ctrl>question'),
-            ('Quit', '<Ctrl>Q'),
+            (_('Search Packages'), '<Ctrl>F'),
+            (_('Open Brewfile'), '<Ctrl>O'),
+            (_('Refresh Package Lists'), '<Ctrl>R'),
+            (_('Preferences'), '<Ctrl>comma'),
+            (_('Keyboard Shortcuts'), '<Ctrl>question'),
+            (_('Quit'), '<Ctrl>Q'),
         ):
             section.add(Adw.ShortcutsItem.new(title, accel))
         dialog.add(section)
@@ -334,11 +337,11 @@ class TavernApplication(Adw.Application):
             developer_name='James',
             version=self.version,
             developers=['James'],
-            copyright='© 2026 James',
+            copyright=_('© 2026 James'),
             license_type=Gtk.License.GPL_3_0,
             website='https://github.com/hanthor/tavern',
             issue_url='https://github.com/hanthor/tavern/issues',
-            comments='A Homebrew App Store for GNOME',
+            comments=_('A Homebrew App Store for GNOME'),
         )
         about.present(self.props.active_window)
 

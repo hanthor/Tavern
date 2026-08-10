@@ -1,2 +1,5 @@
 data/org.tunaos.tavern.desktop.in
 data/org.tunaos.tavern.metainfo.xml.in
+src/backend.py
+src/window.py
+src/application.py
