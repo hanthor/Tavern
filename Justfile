@@ -21,6 +21,12 @@ install: build
     flatpak --user remote-add --no-gpg-verify --if-not-exists tavern-local {{REPO_DIR}}
     flatpak --user install --or-update --noninteractive tavern-local {{APP_ID}}
 
+# Run the Python unit tests.
+# Requires PyGObject + GTK4/Libadwaita dev bindings on the host (the test
+# suite imports gi/Gtk at collection time via tests/conftest.py).
+test:
+    python3 -m pytest tests/ -m "not slow"
+
 # Run the installed Devel Flatpak
 run:
     flatpak run {{APP_ID}}
