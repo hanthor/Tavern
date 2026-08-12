@@ -1,6 +1,6 @@
 # Tavern 🍺
 
-[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](https://github.com/tuna-os/Tavern/blob/main/LICENSE)
 
 Tavern is a modern, fast, and beautiful Homebrew client for Linux, built with **Python**, **GTK 4**, and **Libadwaita**. It provides a premium "App Store" experience for managing your Homebrew formulae and casks.
 
