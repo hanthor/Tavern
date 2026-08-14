@@ -10,6 +10,15 @@ jobs:
   flatpak:
     name: "Flatpak Build"
     runs-on: ubuntu-latest
+    # --privileged is required by flatpak-github-actions itself (bubblewrap
+    # needs it to create sandboxes inside the container; documented as the
+    # standard usage in every example in flatpak/flatpak-github-actions'
+    # own README, no narrower alternative offered) — tuna-os/letters#16.
+    # This job only builds a CI artifact (no publish/release step), so it
+    # needs nothing beyond read access; making that floor explicit here
+    # instead of relying on the repo's default token permissions setting.
+    permissions:
+      contents: read
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       options: --privileged
